@@ -1,0 +1,6 @@
+name: treasurehunt
+version: 1.0
+main: plugin.treasurehunt.Main
+api-version: '1.19'
+commands:
+  treasure:
