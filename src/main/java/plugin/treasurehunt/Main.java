@@ -8,7 +8,7 @@ public final class Main extends JavaPlugin  {
 
     @Override
     public void onEnable() {
-        TreasureCommand treasureCommand = new TreasureCommand();
+        TreasureCommand treasureCommand = new TreasureCommand(this);
         Bukkit.getPluginManager().registerEvents(treasureCommand, this);
         getCommand("treasure").setExecutor(treasureCommand);
     }

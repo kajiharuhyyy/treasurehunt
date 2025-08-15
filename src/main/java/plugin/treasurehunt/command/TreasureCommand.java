@@ -1,5 +1,6 @@
 package plugin.treasurehunt.command;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -9,6 +10,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.scheduler.BukkitTask;
+import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.PlayerScore;
 
 import java.util.ArrayList;
@@ -18,8 +21,15 @@ import java.util.SplittableRandom;
 
 public class TreasureCommand implements CommandExecutor, Listener {
 
+    private Main main;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
     private Material material;
+    private int gameTime = 300;
+    private BukkitTask timerTask;
+
+    public TreasureCommand(Main main) {
+        this.main = main;
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -35,13 +45,24 @@ public class TreasureCommand implements CommandExecutor, Listener {
                 }
             }
 
-
+            gameTime = 300;
             player.setHealth(20);
             player.setFoodLevel(20);
 
             this.material = getMaterial();
-
             player.sendMessage("今回は「" + this.material + "」が指定されました。");
+
+            Bukkit.getScheduler().runTaskTimer(main, timerTask -> {
+                if (gameTime <= 0){
+                    timerTask.cancel();
+                    player.sendMessage("残念！発見できず...");
+                    return;
+                }
+                for (PlayerScore playerScore : playerScoreList){
+                    playerScore.setScore(playerScore.getScore() - 20);
+                    gameTime -= 60;
+                }
+            }, 60, 60 * 20);
         }
         return false;
     }
@@ -55,8 +76,11 @@ public class TreasureCommand implements CommandExecutor, Listener {
 
         for (PlayerScore playerScore : playerScoreList){
             if (playerScore.getPlayerName().equals(player.getName()) && picked == this.material) {
-                    playerScore.setScore(playerScore.getScore() + 10);
+                    playerScore.setScore(playerScore.getScore() + 100);
+                    gameTime = 0;
                     player.sendMessage("お宝発見!ゲーム終了!" + playerScore.getScore() + "点獲得!");
+                    if (timerTask != null) timerTask.cancel();
+                    break;
             }
         }
     }
