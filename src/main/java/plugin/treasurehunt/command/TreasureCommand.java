@@ -8,8 +8,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
-import org.bukkit.scheduler.BukkitTask;
-import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.PlayerScore;
 
 import java.util.ArrayList;
@@ -18,54 +16,50 @@ import java.util.SplittableRandom;
 
 public class TreasureCommand implements CommandExecutor, Listener {
 
-    private Main main;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
     private Material material;
-    private int gameTime = 300;
-    private BukkitTask timerTask;
     private Long startCountTime;
 
-    public TreasureCommand(Main main) {
-        this.main = main;
-    }
+
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
         if(sender instanceof Player player){
-            if (playerScoreList.isEmpty()){
-                addNewPlayer(player);
-            } else {
-                for (PlayerScore playerScore : playerScoreList){
-                    if (!playerScore.getPlayerName().equals(player.getName())){
-                        addNewPlayer(player);
-                    }
-                }
-            }
+            PlayerScore nowPlayer = getPlayerScore(player);
 
 
             player.setHealth(20);
             player.setFoodLevel(20);
 
-//            gameTime = 300;
             startCountTime = System.currentTimeMillis();
 
             this.material = getMaterial();
-            player.sendMessage("今回は「" + this.material + "」が指定されました。");
+            player.sendTitle("お宝を探そう!","今回は「" + this.material + "!"
+                    ,0,60,0);
 
-//            Bukkit.getScheduler().runTaskTimer(main, timerTask -> {
-//                if (gameTime <= 0){
-//                    timerTask.cancel();
-//                    player.sendMessage("残念！発見できず...");
-//                    return;
-//                }
-//                for (PlayerScore playerScore : playerScoreList){
-//                    playerScore.setScore(playerScore.getScore() - 20);
-//                    gameTime -= 60;
-//                }
-//            }, 60 * 20, 60 * 20);
         }
         return false;
+    }
+
+    /**
+     * 現在実行しているプレイヤーのスコア情報を取得する。
+     * @param player　コマンドを実行したプレイヤー
+     * @return
+     */
+    private PlayerScore getPlayerScore(Player player) {
+        if (playerScoreList.isEmpty()){
+            return addNewPlayer(player);
+        } else {
+            for (PlayerScore playerScore : playerScoreList){
+                if (!playerScore.getPlayerName().equals(player.getName())){
+                    return addNewPlayer(player);
+                } else {
+                    return playerScore;
+                }
+            }
+        }
+        return null;
     }
 
 
@@ -77,7 +71,6 @@ public class TreasureCommand implements CommandExecutor, Listener {
 
         for (PlayerScore playerScore : playerScoreList){
             if (playerScore.getPlayerName().equals(player.getName()) && picked == this.material) {
-                    gameTime = 0;
                     long endCountTime = System.currentTimeMillis() - startCountTime;
                     double seconds = endCountTime / 1000.0;
                     if(seconds < 60){
@@ -86,12 +79,16 @@ public class TreasureCommand implements CommandExecutor, Listener {
                         playerScore.setScore(playerScore.getScore() + 50);
                     }
                     if (playerScore.getScore() > 0) {
-                        player.sendMessage(seconds + "秒でお宝発見!" + playerScore.getScore() + "点獲得!");
+                        player.sendTitle("お宝発見！",playerScore.getPlayerName()
+                                + " " + seconds + "秒" + playerScore.getScore() + "点獲得!",
+                                0, 60, 0);
+                        playerScore.setScore(0);
                     } else {
-                        player.sendMessage("残念！発見できず...");
+                        player.sendTitle("残念！発見できず...", playerScore.getPlayerName()
+                                        + " " + seconds + "秒" + playerScore.getScore() + "点獲得!",
+                                0, 60, 0);
+                        playerScore.setScore(0);
                     }
-//                    if (timerTask != null) timerTask.cancel();
-//                    break;
             }
         }
     }
@@ -111,10 +108,12 @@ public class TreasureCommand implements CommandExecutor, Listener {
      * 新規のプレイヤー情報をリストに追加します。
      *
      * @param player　コマンドを実行したプレイヤー
+     * @return 新規プレイヤー
      */
-    private void addNewPlayer(Player player) {
+    private PlayerScore addNewPlayer(Player player) {
         PlayerScore newPlayer = new PlayerScore();
         newPlayer.setPlayerName(player.getName());
         playerScoreList.add(newPlayer);
+        return newPlayer;
     }
 }

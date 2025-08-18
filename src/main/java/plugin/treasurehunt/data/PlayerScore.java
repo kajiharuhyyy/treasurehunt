@@ -13,4 +13,5 @@ public class PlayerScore {
 
     private String playerName;
     private int Score;
+    private Long startCountTime;
 }
