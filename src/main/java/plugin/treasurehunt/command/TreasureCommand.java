@@ -71,7 +71,7 @@ public class TreasureCommand implements CommandExecutor, Listener {
      */
     private static Material getMaterial() {
         List<Material> materialList = List.of(Material.APPLE,Material.PORKCHOP,Material.EGG);
-        int random = new SplittableRandom().nextInt(3);
+        int random = new SplittableRandom().nextInt(materialList.size());
         return materialList.get(random);
     }
 
@@ -84,33 +84,45 @@ public class TreasureCommand implements CommandExecutor, Listener {
 
         for (PlayerScore playerScore : playerScoreList){
             if (playerScore.getPlayerName().equals(player.getName()) && picked == this.material) {
-                    long endCountTime = System.currentTimeMillis() - startCountTime;
-                    double seconds = endCountTime / 1000.0;
 
-                    if (seconds < 60) {
-                        playerScore.setScore(playerScore.getScore() + 100);
+                long endCountTime = System.currentTimeMillis() - startCountTime;
+                double seconds = endCountTime / 1000.0;
+
+                int timeScore = 0;
+                if (seconds < 60) {
+                        timeScore = 100;
                     } else if (seconds < 300) {
-                        playerScore.setScore(playerScore.getScore() + 50);
+                        timeScore = 50;
                     }
 
-                    int point = switch (this.material) {
-                        case APPLE -> 10;
-                        case PORKCHOP -> 20;
-                        case EGG -> 30;
-                        default -> 0;
-                    };
+                int point = switch (this.material) {
+                    case APPLE -> 10;
+                    case PORKCHOP -> 20;
+                    case EGG -> 30;
+                    default -> 0;
+                };
 
-                if (playerScore.getScore() > 0) {
-                        player.sendTitle("お宝発見！",playerScore.getPlayerName()
-                                + " " + seconds + "秒" + playerScore.getScore() + "点！　ボーナス"
-                                        + point + "点! 合計" + playerScore.getScore() + point +  "点獲得!",
+                int totalScore = timeScore + point;
+
+                int resultScore = playerScore.getScore() + totalScore;
+                playerScore.setScore(resultScore);
+
+                if (totalScore > 0 ) {
+                    player.sendTitle("お宝発見！ スコア%d点"
+                                    .formatted(resultScore),
+                                    "%s %.2f秒 +%d点（時間%d / アイテム%d）"
+                                    .formatted(playerScore.getPlayerName(), seconds, totalScore, timeScore, point),
+                                0, 120, 0);
+                    playerScore.setScore(0);
+                } else {
+                    player.sendTitle("残念！時間切れ...", "また見つけてね！",
                                 0, 60, 0);
-                        playerScore.setScore(0);
-                    } else {
-                        player.sendTitle("残念！発見できず...", "また見つけてね！",
-                                0, 60, 0);
-                        playerScore.setScore(0);
-                    }
+                    playerScore.setScore(0);
+                }
+                material = null;
+                startCountTime = null;
+
+                break;
             }
         }
     }
