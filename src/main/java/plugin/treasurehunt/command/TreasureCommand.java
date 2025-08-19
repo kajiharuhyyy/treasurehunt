@@ -35,7 +35,9 @@ public class TreasureCommand implements CommandExecutor, Listener {
             startCountTime = System.currentTimeMillis();
 
             this.material = getMaterial();
-            player.sendTitle("お宝を探そう!","今回は「" + this.material + "!"
+
+
+            player.sendTitle("お宝を探そう!","今回は「" + this.material + "」!"
                     ,0,60,0);
 
         }
@@ -45,7 +47,7 @@ public class TreasureCommand implements CommandExecutor, Listener {
     /**
      * 現在実行しているプレイヤーのスコア情報を取得する。
      * @param player　コマンドを実行したプレイヤー
-     * @return
+     * @return 現在実行しているプレイヤーのスコア情報
      */
     private PlayerScore getPlayerScore(Player player) {
         if (playerScoreList.isEmpty()){
@@ -63,6 +65,17 @@ public class TreasureCommand implements CommandExecutor, Listener {
     }
 
 
+    /**
+     * ランダムでItemを指定して、その結果を取得します。
+     * @return Item
+     */
+    private static Material getMaterial() {
+        List<Material> materialList = List.of(Material.APPLE,Material.PORKCHOP,Material.EGG);
+        int random = new SplittableRandom().nextInt(3);
+        return materialList.get(random);
+    }
+
+
     @EventHandler
     public void onEntityPickupItem(EntityPickupItemEvent e) {
         if (!(e.getEntity() instanceof Player player)) return;
@@ -73,34 +86,33 @@ public class TreasureCommand implements CommandExecutor, Listener {
             if (playerScore.getPlayerName().equals(player.getName()) && picked == this.material) {
                     long endCountTime = System.currentTimeMillis() - startCountTime;
                     double seconds = endCountTime / 1000.0;
-                    if(seconds < 60){
+
+                    if (seconds < 60) {
                         playerScore.setScore(playerScore.getScore() + 100);
                     } else if (seconds < 300) {
                         playerScore.setScore(playerScore.getScore() + 50);
                     }
-                    if (playerScore.getScore() > 0) {
+
+                    int point = switch (this.material) {
+                        case APPLE -> 10;
+                        case PORKCHOP -> 20;
+                        case EGG -> 30;
+                        default -> 0;
+                    };
+
+                if (playerScore.getScore() > 0) {
                         player.sendTitle("お宝発見！",playerScore.getPlayerName()
-                                + " " + seconds + "秒" + playerScore.getScore() + "点獲得!",
+                                + " " + seconds + "秒" + playerScore.getScore() + "点！　ボーナス"
+                                        + point + "点! 合計" + playerScore.getScore() + point +  "点獲得!",
                                 0, 60, 0);
                         playerScore.setScore(0);
                     } else {
-                        player.sendTitle("残念！発見できず...", playerScore.getPlayerName()
-                                        + " " + seconds + "秒" + playerScore.getScore() + "点獲得!",
+                        player.sendTitle("残念！発見できず...", "また見つけてね！",
                                 0, 60, 0);
                         playerScore.setScore(0);
                     }
             }
         }
-    }
-
-    /**
-     * ランダムでItemを指定して、その結果を取得します。
-     * @return Item
-     */
-    private static Material getMaterial() {
-        List<Material> materialList = List.of(Material.APPLE,Material.PORKCHOP,Material.EGG);
-        int random = new SplittableRandom().nextInt(3);
-        return materialList.get(random);
     }
 
 
