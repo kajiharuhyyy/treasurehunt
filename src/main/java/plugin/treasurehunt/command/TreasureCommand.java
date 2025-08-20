@@ -1,5 +1,6 @@
 package plugin.treasurehunt.command;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -8,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.PlayerScore;
 
 import java.util.ArrayList;
@@ -16,18 +18,36 @@ import java.util.SplittableRandom;
 
 public class TreasureCommand implements CommandExecutor, Listener {
 
+    private Main main;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
     private Material material;
     private Long startCountTime;
+    private int gameTime = 540;
+    private int alarm = 0;
 
+    public TreasureCommand(Main main) {
+        this.main = main;
+    }
 
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
+
         if(sender instanceof Player player){
             PlayerScore nowPlayer = getPlayerScore(player);
 
+            gameTime = 540;
+            Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
+                if (gameTime <= 0) {
+                    player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
+                    Runnable.cancel();
+                    return;
+                }
+                alarm++;
+                player.sendMessage(alarm + "分経過！");
+                gameTime -= 60;
+            },60 * 20, 60 * 20);
 
             player.setHealth(20);
             player.setFoodLevel(20);
