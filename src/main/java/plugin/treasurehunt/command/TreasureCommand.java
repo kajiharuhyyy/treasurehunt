@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SplittableRandom;
 
-public class TreasureCommand implements CommandExecutor, Listener {
+public class TreasureCommand extends BaseCommand implements Listener {
 
     private Main main;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
@@ -31,36 +31,35 @@ public class TreasureCommand implements CommandExecutor, Listener {
 
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onExecutePlayerCommand(Player player) {
+        PlayerScore nowPlayer = getPlayerScore(player);
 
+        gameTime = 540;
+        Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
+            if (gameTime <= 0) {
+                player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
+                Runnable.cancel();
+                return;
+            }
+            alarm++;
+            player.sendMessage(alarm + "分経過！");
+            gameTime -= 60;
+        },60 * 20, 60 * 20);
 
-        if(sender instanceof Player player){
-            PlayerScore nowPlayer = getPlayerScore(player);
+        player.setHealth(20);
+        player.setFoodLevel(20);
 
-            gameTime = 540;
-            Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
-                if (gameTime <= 0) {
-                    player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
-                    Runnable.cancel();
-                    return;
-                }
-                alarm++;
-                player.sendMessage(alarm + "分経過！");
-                gameTime -= 60;
-            },60 * 20, 60 * 20);
+        startCountTime = System.currentTimeMillis();
 
-            player.setHealth(20);
-            player.setFoodLevel(20);
+        this.material = getMaterial();
 
-            startCountTime = System.currentTimeMillis();
+        player.sendTitle("お宝を探そう!","今回は「" + this.material + "」!"
+                ,0,60,0);
+        return true;
+    }
 
-            this.material = getMaterial();
-
-
-            player.sendTitle("お宝を探そう!","今回は「" + this.material + "」!"
-                    ,0,60,0);
-
-        }
+    @Override
+    public boolean onExecuteNPCCommand(CommandSender sender) {
         return false;
     }
 
