@@ -16,13 +16,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SplittableRandom;
 
+/**
+ * 制限時間以内にランダムで指定されたお宝を手にいれるゲームを起動するコマンドです。
+ * 見つけた時間によってスコアが変わり、見つけたお宝によってスコアが変動します。
+ * 結果はプレイヤー名、点数、日時などで保存されます。
+ */
 public class TreasureCommand extends BaseCommand implements Listener {
 
+    public static final int GAME_TIME = 540;
     private Main main;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
     private Material material;
     private Long startCountTime;
-    private int gameTime = 540;
     private int alarm = 0;
 
     public TreasureCommand(Main main) {
@@ -32,19 +37,9 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
     @Override
     public boolean onExecutePlayerCommand(Player player) {
-        PlayerScore nowPlayer = getPlayerScore(player);
+        PlayerScore nowPlayerScore = getPlayerScore(player);
 
-        gameTime = 540;
-        Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
-            if (gameTime <= 0) {
-                player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
-                Runnable.cancel();
-                return;
-            }
-            alarm++;
-            player.sendMessage(alarm + "分経過！");
-            gameTime -= 60;
-        },60 * 20, 60 * 20);
+        gamePlay(player, nowPlayerScore);
 
         player.setHealth(20);
         player.setFoodLevel(20);
@@ -58,6 +53,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
         return true;
     }
 
+
     @Override
     public boolean onExecuteNPCCommand(CommandSender sender) {
         return false;
@@ -69,18 +65,49 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * @return 現在実行しているプレイヤーのスコア情報
      */
     private PlayerScore getPlayerScore(Player player) {
+        PlayerScore playerScore = new PlayerScore(player.getName());
         if (playerScoreList.isEmpty()){
-            return addNewPlayer(player);
+            playerScore = addNewPlayer(player);
         } else {
-            for (PlayerScore playerScore : playerScoreList){
-                if (!playerScore.getPlayerName().equals(player.getName())){
-                    return addNewPlayer(player);
-                } else {
-                    return playerScore;
-                }
-            }
+            playerScore = playerScoreList.stream()
+                    .findFirst()
+                    .map(ps -> ps.getPlayerName().equals(player.getName())
+                    ? ps
+                    : addNewPlayer(player)).orElse(playerScore);
         }
-        return null;
+        playerScore.setGameTime(GAME_TIME);
+        return playerScore;
+    }
+
+    /**
+     * 新規のプレイヤー情報をリストに追加します。
+     *
+     * @param player　コマンドを実行したプレイヤー
+     * @return 新規プレイヤー
+     */
+    private PlayerScore addNewPlayer(Player player) {
+        PlayerScore newPlayer = new PlayerScore(player.getName());
+        playerScoreList.add(newPlayer);
+        return newPlayer;
+    }
+
+    /**
+     * ゲームを実行します。1分ごとに知らせがあり、10分経ったら時間切れを表示します。
+     *
+     * @param player　コマンドを実行したプレイヤー
+     * @param nowPlayer　プレイヤースコア情報
+     */
+    private void gamePlay(Player player, PlayerScore nowPlayer) {
+        Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
+            if (nowPlayer.getGameTime() <= 0) {
+                player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
+                Runnable.cancel();
+                return;
+            }
+            alarm++;
+            player.sendMessage(alarm + "分経過！");
+            nowPlayer.setGameTime(nowPlayer.getGameTime() - 60);
+        },60 * 20, 60 * 20);
     }
 
 
@@ -146,17 +173,4 @@ public class TreasureCommand extends BaseCommand implements Listener {
         }
     }
 
-
-    /**
-     * 新規のプレイヤー情報をリストに追加します。
-     *
-     * @param player　コマンドを実行したプレイヤー
-     * @return 新規プレイヤー
-     */
-    private PlayerScore addNewPlayer(Player player) {
-        PlayerScore newPlayer = new PlayerScore();
-        newPlayer.setPlayerName(player.getName());
-        playerScoreList.add(newPlayer);
-        return newPlayer;
-    }
 }
