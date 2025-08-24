@@ -2,8 +2,6 @@ package plugin.treasurehunt.command;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,6 +23,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
     public static final int GAME_TIME = 540;
     private Main main;
+    private org.bukkit.scheduler.BukkitTask timerTask;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
     private Material material;
     private Long startCountTime;
@@ -38,6 +37,13 @@ public class TreasureCommand extends BaseCommand implements Listener {
     @Override
     public boolean onExecutePlayerCommand(Player player) {
         PlayerScore nowPlayerScore = getPlayerScore(player);
+
+        alarm = 0;
+        nowPlayerScore.setGameTime(GAME_TIME);
+
+        if (timerTask != null && !timerTask.isCancelled()) {
+            timerTask.cancel();
+        }
 
         gamePlay(player, nowPlayerScore);
 
@@ -72,10 +78,11 @@ public class TreasureCommand extends BaseCommand implements Listener {
             playerScore = playerScoreList.stream()
                     .findFirst()
                     .map(ps -> ps.getPlayerName().equals(player.getName())
-                    ? ps
-                    : addNewPlayer(player)).orElse(playerScore);
+                            ? ps
+                            : addNewPlayer(player)).orElse(playerScore);
         }
         playerScore.setGameTime(GAME_TIME);
+        playerScore.setScore(0);
         return playerScore;
     }
 
@@ -95,18 +102,19 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * ゲームを実行します。1分ごとに知らせがあり、10分経ったら時間切れを表示します。
      *
      * @param player　コマンドを実行したプレイヤー
-     * @param nowPlayer　プレイヤースコア情報
+     * @param nowPlayerScore　プレイヤースコア情報
      */
-    private void gamePlay(Player player, PlayerScore nowPlayer) {
+    private void gamePlay(Player player, PlayerScore nowPlayerScore) {
         Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
-            if (nowPlayer.getGameTime() <= 0) {
+            if (nowPlayerScore.getGameTime() <= 0) {
                 player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
+                timerTask.cancel();
                 Runnable.cancel();
                 return;
             }
             alarm++;
             player.sendMessage(alarm + "分経過！");
-            nowPlayer.setGameTime(nowPlayer.getGameTime() - 60);
+            nowPlayerScore.setGameTime(nowPlayerScore.getGameTime() - 60);
         },60 * 20, 60 * 20);
     }
 
@@ -124,53 +132,56 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
     @EventHandler
     public void onEntityPickupItem(EntityPickupItemEvent e) {
-        if (!(e.getEntity() instanceof Player player)) return;
-        if (playerScoreList.isEmpty() || material == null) return;
+        if (!(e.getEntity() instanceof Player player) || playerScoreList.isEmpty() || material == null) return;
         Material picked = e.getItem().getItemStack().getType();
 
-        for (PlayerScore playerScore : playerScoreList){
-            if (playerScore.getPlayerName().equals(player.getName()) && picked == this.material) {
+        playerScoreList.stream()
+                .filter(p -> p.getPlayerName().equals(player.getName()))
+                .findFirst()
+                .ifPresent(p -> {
+                    if (picked == this.material) {
 
-                long endCountTime = System.currentTimeMillis() - startCountTime;
-                double seconds = endCountTime / 1000.0;
+                        long endCountTime = System.currentTimeMillis() - startCountTime;
+                        double seconds = endCountTime / 1000.0;
 
-                int timeScore = 0;
-                if (seconds < 60) {
-                        timeScore = 100;
-                    } else if (seconds < 300) {
-                        timeScore = 50;
+                        int timeScore = 0;
+                        if (seconds < 60) {
+                            timeScore = 100;
+                        } else if (seconds < 300) {
+                            timeScore = 50;
+                        }
+
+                        int point = switch (this.material) {
+                            case APPLE -> 10;
+                            case PORKCHOP -> 20;
+                            case EGG -> 30;
+                            default -> 0;
+                        };
+
+                        int totalScore = timeScore + point;
+
+                        int resultScore = p.getScore() + totalScore;
+                        p.setScore(resultScore);
+
+                        if (totalScore > 0 ) {
+                            player.sendTitle("お宝発見！ スコア%d点"
+                                            .formatted(resultScore),
+                                    "%s %.2f秒 （時間%d / アイテム%d）"
+                                            .formatted(p.getPlayerName(), seconds, timeScore, point),
+                                    0, 120, 0);
+                            p.setScore(0);
+                        } else {
+                            player.sendTitle("残念！時間切れ...", "また見つけてね！",
+                                    0, 60, 0);
+                            p.setScore(0);
+                        }
                     }
-
-                int point = switch (this.material) {
-                    case APPLE -> 10;
-                    case PORKCHOP -> 20;
-                    case EGG -> 30;
-                    default -> 0;
-                };
-
-                int totalScore = timeScore + point;
-
-                int resultScore = playerScore.getScore() + totalScore;
-                playerScore.setScore(resultScore);
-
-                if (totalScore > 0 ) {
-                    player.sendTitle("お宝発見！ スコア%d点"
-                                    .formatted(resultScore),
-                                    "%s %.2f秒 +%d点（時間%d / アイテム%d）"
-                                    .formatted(playerScore.getPlayerName(), seconds, totalScore, timeScore, point),
-                                0, 120, 0);
-                    playerScore.setScore(0);
-                } else {
-                    player.sendTitle("残念！時間切れ...", "また見つけてね！",
-                                0, 60, 0);
-                    playerScore.setScore(0);
-                }
-                material = null;
-                startCountTime = null;
-
-                break;
-            }
-        }
+                    if (timerTask != null) {
+                        timerTask.cancel();
+                        timerTask = null;
+                    }
+                    material = null;
+                    startCountTime = null;
+                });
     }
-
 }
