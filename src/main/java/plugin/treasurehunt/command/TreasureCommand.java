@@ -2,6 +2,7 @@ package plugin.treasurehunt.command;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -10,7 +11,11 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.PlayerScore;
 
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.SplittableRandom;
 
@@ -22,6 +27,8 @@ import java.util.SplittableRandom;
 public class TreasureCommand extends BaseCommand implements Listener {
 
     public static final int GAME_TIME = 540;
+    public static final String LIST = "list";
+
     private Main main;
     private org.bukkit.scheduler.BukkitTask timerTask;
     private List<PlayerScore> playerScoreList = new ArrayList<>();
@@ -35,7 +42,30 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
 
     @Override
-    public boolean onExecutePlayerCommand(Player player) {
+    public boolean onExecutePlayerCommand(Player player, Command command, String label, String[] args) {
+        if (args.length == 1 && LIST.equals(args[0])) {
+            try (Connection con = DriverManager.getConnection(
+                    "jdbc:mysql://localhost:3306/spigot_server",
+                    "root",
+                    "Kajikaji0921");
+                 Statement statement = con.createStatement();
+                 ResultSet resultSet = statement.executeQuery("select * from player_score")) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    String name = resultSet.getString("player_name");
+                    int score = resultSet.getInt("score");
+                    double elapsed  = resultSet.getDouble("elapsed_sec");
+                    LocalDateTime date = LocalDateTime.parse(resultSet.getString("registered_at"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    player.sendMessage("%d | %s | %d | %.2f秒 | %s"
+                            .formatted(id, name, score, elapsed,
+                                    date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return false;
+        }
+
         PlayerScore nowPlayerScore = getPlayerScore(player);
 
         alarm = 0;
@@ -61,7 +91,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
 
     @Override
-    public boolean onExecuteNPCCommand(CommandSender sender) {
+    public boolean onExecuteNPCCommand(CommandSender sender, Command command, String label, String[] args) {
         return false;
     }
 
