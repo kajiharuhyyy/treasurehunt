@@ -196,16 +196,32 @@ public class TreasureCommand extends BaseCommand implements Listener {
                         if (totalScore > 0 ) {
                             player.sendTitle("お宝発見！ スコア%d点"
                                             .formatted(resultScore),
-                                    "%s %.2f秒 （時間%d / アイテム%d）"
+                                    "%s\n%.2f秒 （時間%d / アイテム%d）"
                                             .formatted(p.getPlayerName(), seconds, timeScore, point),
                                     0, 120, 0);
-                            p.setScore(0);
                         } else {
                             player.sendTitle("残念！時間切れ...", "また見つけてね！",
                                     0, 60, 0);
-                            p.setScore(0);
                         }
+
+                        try (Connection con = DriverManager.getConnection(
+                                "jdbc:mysql://localhost:3306/spigot_server",
+                                "root",
+                                "Kajikaji0921");
+                             Statement statement = con.createStatement()) {
+
+                            statement.executeUpdate(
+                                    "insert player_score(player_name, score, elapsed_sec, registered_at)"
+                                            + "values('" + p.getPlayerName() + "', " + p.getScore() + ",'"
+                                            + seconds + "', now());");
+                        } catch (SQLException ex) {
+                            ex.printStackTrace();
+                        }
+
+                        p.setScore(0);
                     }
+
+
                     if (timerTask != null) {
                         timerTask.cancel();
                         timerTask = null;
