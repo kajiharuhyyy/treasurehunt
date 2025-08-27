@@ -41,6 +41,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
     private Material material;
     private Long startCountTime;
     private int alarm = 0;
+    private boolean timeoutNotified = false; // 二重表示ガード（任意）
 
     private SqlSessionFactory sqlSessionFactory;
 
@@ -63,14 +64,12 @@ public class TreasureCommand extends BaseCommand implements Listener {
                 PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
                 List<PlayerScore> playerScoreList = mapper.selectList();
 
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 for(PlayerScore playerScore : playerScoreList) {
-                    LocalDateTime date = LocalDateTime.parse(playerScore.getRegisteredAt(), formatter);
 
                     player.sendMessage("%d | %s | %d | %.2f秒 | %s"
                             .formatted(playerScore.getId(), playerScore.getPlayerName(),
                                     playerScore.getScore(), playerScore.getElapsedSec(),
-                                    date.format(formatter)));
+                                    playerScore.getRegisteredAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
                 }
             }
             return false;
@@ -145,18 +144,31 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * @param nowExecutingPlayer　プレイヤースコア情報
      */
     private void gamePlay(Player player, ExecutingPlayer nowExecutingPlayer) {
-        Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
-            if (nowExecutingPlayer.getGameTime() <= 0) {
-                player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
-                timerTask.cancel();
-                Runnable.cancel();
+        if (timerTask != null && !timerTask.isCancelled()) {
+            timerTask.cancel();
+        }
+        timeoutNotified = false;
+
+        timerTask = Bukkit.getScheduler().runTaskTimer(main, () -> {
+            int remain = nowExecutingPlayer.getGameTime();
+            if (remain <= 0) {
+                if (!timeoutNotified) {
+                    player.sendTitle("残念！時間切れ…", "また挑戦してね！", 0, 60, 0);
+                    timeoutNotified = true;
+                }
+
+                if (timerTask != null) {
+                    timerTask.cancel();
+                    timerTask = null;
+                }
                 return;
             }
             alarm++;
             player.sendMessage(alarm + "分経過！");
-            nowExecutingPlayer.setGameTime(nowExecutingPlayer.getGameTime() - 60);
-        },60 * 20, 60 * 20);
+            nowExecutingPlayer.setGameTime(remain - 60);
+        }, 60 * 20L, 60 * 20L);
     }
+
 
 
     /**
@@ -214,18 +226,10 @@ public class TreasureCommand extends BaseCommand implements Listener {
                                     0, 60, 0);
                         }
 
-                        try (Connection con = DriverManager.getConnection(
-                                "jdbc:mysql://localhost:3306/spigot_server",
-                                "root",
-                                "Kajikaji0921");
-                             Statement statement = con.createStatement()) {
-
-                            statement.executeUpdate(
-                                    "insert player_score(player_name, score, elapsed_sec, registered_at)"
-                                            + "values('" + p.getPlayerName() + "', " + p.getScore() + ",'"
-                                            + seconds + "', now());");
-                        } catch (SQLException ex) {
-                            ex.printStackTrace();
+                        //　スコア登録処理
+                        try (SqlSession session = sqlSessionFactory.openSession(true)) {
+                            PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
+                            mapper.insert(new PlayerScore(p.getPlayerName(), resultScore, seconds));
                         }
 
                         p.setScore(0);
