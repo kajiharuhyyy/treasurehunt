@@ -1,5 +1,9 @@
 package plugin.treasurehunt.command;
 
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -9,13 +13,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import plugin.treasurehunt.Main;
-import plugin.treasurehunt.data.PlayerScore;
+import plugin.treasurehunt.data.ExecutingPlayer;
+import plugin.treasurehunt.mapper.PlayerScoreMapper;
+import plugin.treasurehunt.mapper.data.PlayerScore;
 
+import java.io.InputStream;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.SplittableRandom;
 
@@ -31,51 +37,55 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
     private Main main;
     private org.bukkit.scheduler.BukkitTask timerTask;
-    private List<PlayerScore> playerScoreList = new ArrayList<>();
+    private List<ExecutingPlayer> executingPlayerList = new ArrayList<>();
     private Material material;
     private Long startCountTime;
     private int alarm = 0;
 
+    private SqlSessionFactory sqlSessionFactory;
+
     public TreasureCommand(Main main) {
         this.main = main;
+
+        try {
+            InputStream inputStream = Resources.getResourceAsStream("mybatis-config.xml");
+            this.sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
     @Override
     public boolean onExecutePlayerCommand(Player player, Command command, String label, String[] args) {
         if (args.length == 1 && LIST.equals(args[0])) {
-            try (Connection con = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/spigot_server",
-                    "root",
-                    "Kajikaji0921");
-                 Statement statement = con.createStatement();
-                 ResultSet resultSet = statement.executeQuery("select * from player_score")) {
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("id");
-                    String name = resultSet.getString("player_name");
-                    int score = resultSet.getInt("score");
-                    double elapsed  = resultSet.getDouble("elapsed_sec");
-                    LocalDateTime date = LocalDateTime.parse(resultSet.getString("registered_at"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            try (SqlSession session = sqlSessionFactory.openSession()) {
+                PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
+                List<PlayerScore> playerScoreList = mapper.selectList();
+
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                for(PlayerScore playerScore : playerScoreList) {
+                    LocalDateTime date = LocalDateTime.parse(playerScore.getRegisteredAt(), formatter);
+
                     player.sendMessage("%d | %s | %d | %.2f秒 | %s"
-                            .formatted(id, name, score, elapsed,
-                                    date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                            .formatted(playerScore.getId(), playerScore.getPlayerName(),
+                                    playerScore.getScore(), playerScore.getElapsedSec(),
+                                    date.format(formatter)));
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
             return false;
         }
 
-        PlayerScore nowPlayerScore = getPlayerScore(player);
+        ExecutingPlayer nowExecutingPlayer = getPlayerScore(player);
 
         alarm = 0;
-        nowPlayerScore.setGameTime(GAME_TIME);
+        nowExecutingPlayer.setGameTime(GAME_TIME);
 
         if (timerTask != null && !timerTask.isCancelled()) {
             timerTask.cancel();
         }
 
-        gamePlay(player, nowPlayerScore);
+        gamePlay(player, nowExecutingPlayer);
 
         player.setHealth(20);
         player.setFoodLevel(20);
@@ -100,20 +110,20 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * @param player　コマンドを実行したプレイヤー
      * @return 現在実行しているプレイヤーのスコア情報
      */
-    private PlayerScore getPlayerScore(Player player) {
-        PlayerScore playerScore = new PlayerScore(player.getName());
-        if (playerScoreList.isEmpty()){
-            playerScore = addNewPlayer(player);
+    private ExecutingPlayer getPlayerScore(Player player) {
+        ExecutingPlayer executingPlayer = new ExecutingPlayer(player.getName());
+        if (executingPlayerList.isEmpty()){
+            executingPlayer = addNewPlayer(player);
         } else {
-            playerScore = playerScoreList.stream()
+            executingPlayer = executingPlayerList.stream()
                     .findFirst()
                     .map(ps -> ps.getPlayerName().equals(player.getName())
                             ? ps
-                            : addNewPlayer(player)).orElse(playerScore);
+                            : addNewPlayer(player)).orElse(executingPlayer);
         }
-        playerScore.setGameTime(GAME_TIME);
-        playerScore.setScore(0);
-        return playerScore;
+        executingPlayer.setGameTime(GAME_TIME);
+        executingPlayer.setScore(0);
+        return executingPlayer;
     }
 
     /**
@@ -122,9 +132,9 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * @param player　コマンドを実行したプレイヤー
      * @return 新規プレイヤー
      */
-    private PlayerScore addNewPlayer(Player player) {
-        PlayerScore newPlayer = new PlayerScore(player.getName());
-        playerScoreList.add(newPlayer);
+    private ExecutingPlayer addNewPlayer(Player player) {
+        ExecutingPlayer newPlayer = new ExecutingPlayer(player.getName());
+        executingPlayerList.add(newPlayer);
         return newPlayer;
     }
 
@@ -132,11 +142,11 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * ゲームを実行します。1分ごとに知らせがあり、10分経ったら時間切れを表示します。
      *
      * @param player　コマンドを実行したプレイヤー
-     * @param nowPlayerScore　プレイヤースコア情報
+     * @param nowExecutingPlayer　プレイヤースコア情報
      */
-    private void gamePlay(Player player, PlayerScore nowPlayerScore) {
+    private void gamePlay(Player player, ExecutingPlayer nowExecutingPlayer) {
         Bukkit.getScheduler().runTaskTimer(main, Runnable -> {
-            if (nowPlayerScore.getGameTime() <= 0) {
+            if (nowExecutingPlayer.getGameTime() <= 0) {
                 player.sendTitle("残念！制限時間切れ…","また挑戦してね",0,60,0);
                 timerTask.cancel();
                 Runnable.cancel();
@@ -144,7 +154,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
             }
             alarm++;
             player.sendMessage(alarm + "分経過！");
-            nowPlayerScore.setGameTime(nowPlayerScore.getGameTime() - 60);
+            nowExecutingPlayer.setGameTime(nowExecutingPlayer.getGameTime() - 60);
         },60 * 20, 60 * 20);
     }
 
@@ -162,10 +172,10 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
     @EventHandler
     public void onEntityPickupItem(EntityPickupItemEvent e) {
-        if (!(e.getEntity() instanceof Player player) || playerScoreList.isEmpty() || material == null) return;
+        if (!(e.getEntity() instanceof Player player) || executingPlayerList.isEmpty() || material == null) return;
         Material picked = e.getItem().getItemStack().getType();
 
-        playerScoreList.stream()
+        executingPlayerList.stream()
                 .filter(p -> p.getPlayerName().equals(player.getName()))
                 .findFirst()
                 .ifPresent(p -> {
@@ -196,8 +206,8 @@ public class TreasureCommand extends BaseCommand implements Listener {
                         if (totalScore > 0 ) {
                             player.sendTitle("お宝発見！ スコア%d点"
                                             .formatted(resultScore),
-                                    "%s\n%.2f秒 （時間%d / アイテム%d）"
-                                            .formatted(p.getPlayerName(), seconds, timeScore, point),
+                                    "%.2f秒 （時間%d / アイテム%d）"
+                                            .formatted(seconds, timeScore, point),
                                     0, 120, 0);
                         } else {
                             player.sendTitle("残念！時間切れ...", "また見つけてね！",
