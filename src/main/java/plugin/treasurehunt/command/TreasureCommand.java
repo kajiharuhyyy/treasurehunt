@@ -1,9 +1,5 @@
 package plugin.treasurehunt.command;
 
-import org.apache.ibatis.io.Resources;
-import org.apache.ibatis.session.SqlSession;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -12,14 +8,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import plugin.treasurehunt.PlayerScoreData;
 import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.ExecutingPlayer;
-import plugin.treasurehunt.mapper.PlayerScoreMapper;
 import plugin.treasurehunt.mapper.data.PlayerScore;
 
-import java.io.InputStream;
-import java.sql.*;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,43 +28,30 @@ public class TreasureCommand extends BaseCommand implements Listener {
     public static final int GAME_TIME = 540;
     public static final String LIST = "list";
 
-    private Main main;
+    private final Main main;
+    private final PlayerScoreData playerScoreData = new PlayerScoreData();
+
     private org.bukkit.scheduler.BukkitTask timerTask;
-    private List<ExecutingPlayer> executingPlayerList = new ArrayList<>();
+    private final List<ExecutingPlayer> executingPlayerList = new ArrayList<>();
     private Material material;
     private Long startCountTime;
     private int alarm = 0;
     private boolean timeoutNotified = false; // 二重表示ガード（任意）
 
-    private SqlSessionFactory sqlSessionFactory;
+
 
     public TreasureCommand(Main main) {
         this.main = main;
 
-        try {
-            InputStream inputStream = Resources.getResourceAsStream("mybatis-config.xml");
-            this.sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+
     }
 
 
     @Override
     public boolean onExecutePlayerCommand(Player player, Command command, String label, String[] args) {
+        // 最初の引数が「list」だったらスコア一覧表示して処理を終了する。
         if (args.length == 1 && LIST.equals(args[0])) {
-            try (SqlSession session = sqlSessionFactory.openSession()) {
-                PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
-                List<PlayerScore> playerScoreList = mapper.selectList();
-
-                for(PlayerScore playerScore : playerScoreList) {
-
-                    player.sendMessage("%d | %s | %d | %.2f秒 | %s"
-                            .formatted(playerScore.getId(), playerScore.getPlayerName(),
-                                    playerScore.getScore(), playerScore.getElapsedSec(),
-                                    playerScore.getRegisteredAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-                }
-            }
+            sendPlayerScoreList(player);
             return false;
         }
 
@@ -135,6 +115,21 @@ public class TreasureCommand extends BaseCommand implements Listener {
         ExecutingPlayer newPlayer = new ExecutingPlayer(player.getName());
         executingPlayerList.add(newPlayer);
         return newPlayer;
+    }
+
+    /**
+     * 現在登録されているスコアの一覧をメッセージで送る。
+     *
+     * @param player　プレイヤー
+     */
+    private void sendPlayerScoreList(Player player) {
+        List<PlayerScore> playerScoreList = playerScoreData.selectList();
+        for(PlayerScore playerScore : playerScoreList) {
+            player.sendMessage("%d | %s | %d | %.2f秒 | %s"
+                    .formatted(playerScore.getId(), playerScore.getPlayerName(),
+                            playerScore.getScore(), playerScore.getElapsedSec(),
+                            playerScore.getRegisteredAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+        }
     }
 
     /**
@@ -226,11 +221,9 @@ public class TreasureCommand extends BaseCommand implements Listener {
                                     0, 60, 0);
                         }
 
-                        //　スコア登録処理
-                        try (SqlSession session = sqlSessionFactory.openSession(true)) {
-                            PlayerScoreMapper mapper = session.getMapper(PlayerScoreMapper.class);
-                            mapper.insert(new PlayerScore(p.getPlayerName(), resultScore, seconds));
-                        }
+                        playerScoreData.insert(
+                                new PlayerScore(p.getPlayerName(), resultScore, seconds)
+                        );
 
                         p.setScore(0);
                     }

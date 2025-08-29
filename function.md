@@ -24,5 +24,5 @@ gameStartコマンドを実行した時点から、対象のEntityを取得す�
 2gameStartコマンドを実行すると、特定のEntity(Item)が指定されること
 （コマンド名はgameStartでなくても問題ありません。対象のEntityがPlayerにわかるように設定しましょう！）
 3gameStartコマンドを実行した時点から、対象のEntityを取得するまでの時間を計測すること
-itemを取得した際に点数が加算される。プレイヤーが取得したitemである。
-gameStartコマンドを実行した時点から、対象のEntityを取得するまでの時間を計測すること
+4itemを取得した際に点数が加算される。プレイヤーが取得したitemである。
+5gameStartコマンドを実行した時点から、対象のEntityを取得するまでの時間を計測すること
