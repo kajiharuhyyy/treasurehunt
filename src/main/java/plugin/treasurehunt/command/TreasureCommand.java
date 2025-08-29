@@ -8,6 +8,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import plugin.treasurehunt.PlayerScoreData;
 import plugin.treasurehunt.Main;
 import plugin.treasurehunt.data.ExecutingPlayer;
@@ -62,8 +64,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
         gamePlay(player, nowExecutingPlayer);
 
-        player.setHealth(20);
-        player.setFoodLevel(20);
+        initPlayerStatus(player);
 
         startCountTime = System.currentTimeMillis();
 
@@ -162,7 +163,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
         }, 60 * 20L, 60 * 20L);
     }
 
-    // 追加: 昼用（動物系）＆ 夜用（モンスター系）
+    // 昼用（動物系)
     private static final List<Material> DAY_ITEMS = List.of(
             Material.FEATHER,      // ニワトリ
             Material.LEATHER,      // 牛/馬
@@ -172,6 +173,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
             Material.CHICKEN       // 鳥
     );
 
+    // 夜用（モンスター系）
     private static final List<Material> NIGHT_ITEMS = List.of(
             Material.ROTTEN_FLESH, // ゾンビ
             Material.BONE,         // スケルトン
@@ -195,6 +197,24 @@ public class TreasureCommand extends BaseCommand implements Listener {
     private static Material pickFrom(List<Material> pool) {
         int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(pool.size());
         return pool.get(idx);
+    }
+
+    /**
+     * ゲームを始める前にプレイヤーの状態を設定する。
+     * 体力と空腹度を最大にして、装備はネザライト一式になる。
+     *
+     * @param player　コマンドを実行したプライヤー
+     */
+    private void initPlayerStatus(Player player) {
+        player.setHealth(20);
+        player.setFoodLevel(20);
+
+        PlayerInventory inventory = player.getInventory();
+        inventory.setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+        inventory.setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+        inventory.setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
+        inventory.setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+        inventory.setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
     }
 
 
