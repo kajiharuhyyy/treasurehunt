@@ -16,7 +16,6 @@ import plugin.treasurehunt.mapper.data.PlayerScore;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.SplittableRandom;
 
 /**
  * 制限時間以内にランダムで指定されたお宝を手にいれるゲームを起動するコマンドです。
@@ -36,14 +35,11 @@ public class TreasureCommand extends BaseCommand implements Listener {
     private Material material;
     private Long startCountTime;
     private int alarm = 0;
-    private boolean timeoutNotified = false; // 二重表示ガード（任意）
-
+    private boolean timeoutNotified = false;
 
 
     public TreasureCommand(Main main) {
         this.main = main;
-
-
     }
 
 
@@ -71,7 +67,9 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
         startCountTime = System.currentTimeMillis();
 
-        this.material = getMaterial();
+        boolean nightQuest = isNight(player.getWorld());
+        List<Material> pool = nightQuest ? NIGHT_ITEMS : DAY_ITEMS;
+        this.material = pickFrom(pool);
 
         player.sendTitle("お宝を探そう!","今回は「" + this.material + "」!"
                 ,0,60,0);
@@ -164,16 +162,39 @@ public class TreasureCommand extends BaseCommand implements Listener {
         }, 60 * 20L, 60 * 20L);
     }
 
+    // 追加: 昼用（動物系）＆ 夜用（モンスター系）
+    private static final List<Material> DAY_ITEMS = List.of(
+            Material.FEATHER,      // ニワトリ
+            Material.LEATHER,      // 牛/馬
+            Material.PORKCHOP,     // 豚
+            Material.MUTTON,       // 羊
+            Material.BEEF,         // 牛
+            Material.CHICKEN       // 鳥
+    );
+
+    private static final List<Material> NIGHT_ITEMS = List.of(
+            Material.ROTTEN_FLESH, // ゾンビ
+            Material.BONE,         // スケルトン
+            Material.STRING,       // クモ
+            Material.SPIDER_EYE,   // クモ
+            Material.GUNPOWDER,    // クリーパー
+            Material.ENDER_PEARL   // エンダーマン
+    );
+
+    private static boolean isNight(org.bukkit.World world) {
+        long t = world.getTime() % 24000L;
+        return t >= 13000L && t < 24000L;
+    }
 
 
     /**
      * ランダムでItemを指定して、その結果を取得します。
+     * 昼か夜で指定されるItemが変わります。
      * @return Item
      */
-    private static Material getMaterial() {
-        List<Material> materialList = List.of(Material.APPLE,Material.PORKCHOP,Material.EGG);
-        int random = new SplittableRandom().nextInt(materialList.size());
-        return materialList.get(random);
+    private static Material pickFrom(List<Material> pool) {
+        int idx = java.util.concurrent.ThreadLocalRandom.current().nextInt(pool.size());
+        return pool.get(idx);
     }
 
 
@@ -199,9 +220,21 @@ public class TreasureCommand extends BaseCommand implements Listener {
                         }
 
                         int point = switch (this.material) {
-                            case APPLE -> 10;
-                            case PORKCHOP -> 20;
-                            case EGG -> 30;
+                            // --- 動物系（昼） ---
+                            case FEATHER    -> 10;  // ニワトリ
+                            case LEATHER    -> 20;  // 牛/馬
+                            case PORKCHOP   -> 15;  // 豚
+                            case MUTTON     -> 15;  // 羊
+                            case BEEF       -> 20;  // 牛
+                            case CHICKEN    -> 10;  // 鶏肉
+
+                            // --- モンスター系（夜） ---
+                            case ROTTEN_FLESH -> 5;   // ゾンビ
+                            case BONE         -> 10;  // スケルトン
+                            case STRING       -> 10;  // クモ
+                            case SPIDER_EYE   -> 20;  // クモの目（レア）
+                            case GUNPOWDER    -> 25;  // クリーパー
+                            case ENDER_PEARL  -> 50;  // エンダーマン（レア）
                             default -> 0;
                         };
 
