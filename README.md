@@ -7,7 +7,8 @@
 
 ## 🎥 デモ動画
 
-![demo](docs/demo.gif)
+![Demo](./treasure.gif)
+
 
 ---
 
