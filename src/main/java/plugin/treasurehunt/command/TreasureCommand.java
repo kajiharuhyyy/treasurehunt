@@ -183,6 +183,11 @@ public class TreasureCommand extends BaseCommand implements Listener {
             Material.ENDER_PEARL   // エンダーマン
     );
 
+    /**
+     *　現在の時間が夜か判定します。
+     * @param world 判定対象のワールド
+     * @return 夜であれば true、昼であれば false
+     */
     private static boolean isNight(org.bukkit.World world) {
         long t = world.getTime() % 24000L;
         return t >= 13000L && t < 24000L;
@@ -217,6 +222,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
         inventory.setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
     }
 
+
     @EventHandler(ignoreCancelled = true)
     public void onEntityPickupItem(EntityPickupItemEvent e) {
         if (!(e.getEntity() instanceof Player player)
@@ -231,13 +237,9 @@ public class TreasureCommand extends BaseCommand implements Listener {
                 .findFirst()
                 .ifPresent(p -> {
                     if (picked != this.material) {
-                        // ハズレの場合は何もしない（ゲーム継続）
-                        // 必要ならヒントメッセージだけ出す:
-                        // player.sendMessage("それはお宝じゃないよ！");
                         return;
                     }
 
-                    // ここから「正解」のみ
                     long endCountTime = System.currentTimeMillis() - startCountTime;
                     double seconds = endCountTime / 1000.0;
 
@@ -271,86 +273,11 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
                     playerScoreData.insert(new PlayerScore(p.getPlayerName(), resultScore, seconds));
 
-                    // ★正解した時だけゲーム終了＆リセット
+                    // 正解した時だけゲーム終了＆リセット
                     if (timerTask != null) { timerTask.cancel(); timerTask = null; }
                     material = null;
                     startCountTime = null;
                     p.setScore(0);
                 });
     }
-
-
-
-//    @EventHandler
-//    public void onEntityPickupItem(EntityPickupItemEvent e) {
-//        if (!(e.getEntity() instanceof Player player)
-//                || executingPlayerList.isEmpty()
-//                || material == null
-//                || startCountTime == null) return;
-//        Material picked = e.getItem().getItemStack().getType();
-//
-//        executingPlayerList.stream()
-//                .filter(p -> p.getPlayerName().equals(player.getName()))
-//                .findFirst()
-//                .ifPresent(p -> {
-//                    if (picked == this.material) {
-//
-//                        long endCountTime = System.currentTimeMillis() - startCountTime;
-//                        double seconds = endCountTime / 1000.0;
-//
-//                        int timeScore = 0;
-//                        if (seconds < 60) {
-//                            timeScore = 100;
-//                        } else if (seconds < 300) {
-//                            timeScore = 50;
-//                        }
-//
-//                        int point = switch (this.material) {
-//                            // --- 動物系（昼） ---
-//                            case FEATHER    -> 10;  // ニワトリ
-//                            case LEATHER    -> 20;  // 牛/馬
-//                            case PORKCHOP   -> 15;  // 豚
-//                            case MUTTON     -> 15;  // 羊
-//                            case BEEF       -> 20;  // 牛
-//                            case CHICKEN    -> 10;  // 鶏肉
-//
-//                            // --- モンスター系（夜） ---
-//                            case ROTTEN_FLESH -> 5;   // ゾンビ
-//                            case BONE         -> 10;  // スケルトン
-//                            case STRING       -> 10;  // クモ
-//                            case SPIDER_EYE   -> 20;  // クモの目（レア）
-//                            case GUNPOWDER    -> 25;  // クリーパー
-//                            case ENDER_PEARL  -> 50;  // エンダーマン（レア）
-//                            default -> 0;
-//                        };
-//
-//                        int totalScore = timeScore + point;
-//
-//                        int resultScore = p.getScore() + totalScore;
-//                        p.setScore(resultScore);
-//
-//                        if (totalScore > 0 ) {
-//                            player.sendTitle("お宝発見！ スコア%d点"
-//                                            .formatted(resultScore),
-//                                    "%.2f秒 （時間%d / アイテム%d）"
-//                                            .formatted(seconds, timeScore, point),
-//                                    0, 120, 0);
-//                        } else {
-//                            player.sendTitle("残念！時間切れ...", "また見つけてね！",
-//                                    0, 60, 0);
-//                        }
-//
-//                        playerScoreData.insert(
-//                                new PlayerScore(p.getPlayerName(), resultScore, seconds)
-//                        );
-//
-//                        p.setScore(0);
-//                    }
-//
-//
-//                    if (timerTask != null) { timerTask.cancel(); timerTask = null; }
-//                    material = null;
-//                    startCountTime = null;
-//                });
-//    }
 }
