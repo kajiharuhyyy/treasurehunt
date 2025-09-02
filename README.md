@@ -72,6 +72,6 @@ CREATE TABLE player_score (
 
 ## 📌 作者
 
-Kajino Haruhisa
+梶野　悠久
 
 - [GitHub](https://github.com/kajiharuhyyy/treasurehunt.git)
