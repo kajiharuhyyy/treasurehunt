@@ -183,6 +183,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
             Material.ENDER_PEARL   // エンダーマン
     );
 
+
     /**
      *　現在の時間が夜か判定します。
      * @param world 判定対象のワールド
@@ -190,7 +191,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
      */
     private static boolean isNight(org.bukkit.World world) {
         long t = world.getTime() % 24000L;
-        return t >= 13000L && t < 24000L;
+        return t >= 13000L;
     }
 
 
@@ -245,13 +246,10 @@ public class TreasureCommand extends BaseCommand implements Listener {
 
                     int timeScore = (seconds < 60) ? 100 : (seconds < 300 ? 50 : 0);
                     int point = switch (this.material) {
-                        case FEATHER -> 10;
-                        case LEATHER, BEEF -> 20;
+                        case FEATHER, CHICKEN, BONE, STRING -> 10;
+                        case LEATHER, BEEF, SPIDER_EYE -> 20;
                         case PORKCHOP, MUTTON -> 15;
-                        case CHICKEN -> 10;
                         case ROTTEN_FLESH -> 5;
-                        case BONE, STRING -> 10;
-                        case SPIDER_EYE -> 20;
                         case GUNPOWDER -> 25;
                         case ENDER_PEARL -> 50;
                         default -> 0;
