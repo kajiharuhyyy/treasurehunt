@@ -189,7 +189,7 @@ public class TreasureCommand extends BaseCommand implements Listener {
      * @param world 判定対象のワールド
      * @return 夜であれば true、昼であれば false
      */
-    private static boolean isNight(org.bukkit.World world) {
+    static boolean isNight(org.bukkit.World world) {
         long t = world.getTime() % 24000L;
         return t >= 13000L;
     }
@@ -222,7 +222,6 @@ public class TreasureCommand extends BaseCommand implements Listener {
         inventory.setBoots(new ItemStack(Material.NETHERITE_BOOTS));
         inventory.setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
     }
-
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityPickupItem(EntityPickupItemEvent e) {
